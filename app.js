@@ -2,22 +2,27 @@
 // 【セキュリティシステム：SHA-256暗号化判定】
 // ==========================================
 (async function checkSecurity() {
-    const inputPass = prompt("パスワードを入力してください：");
+    let inputPass = prompt("パスワードを入力してください：");
     if (!inputPass) {
         denyAccess();
         return;
     }
 
-    // スマホ・PCのブラウザ標準の機能を使って入力文字をその場で暗号化
-    const msgBuffer = new TextEncoder().encode(inputPass);
+    // 【対策】全角数字で入力されても半角に自動変換し、前後の不要な空白も徹底削除
+    inputPass = inputPass.trim().replace(/[０-９]/g, function(s) {
+        return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+    });
+
+    // 1文字ずつの配列にしてからUTF-8のバイト列に変換（BOMなどの見えないゴミを完全に排除）
+    const charCodes = Array.from(inputPass).map(c => c.charCodeAt(0));
+    const msgBuffer = new Uint8Array(charCodes);
+    
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const inputHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-    // 「6230」を暗号化した文字列。ソースコードをどれだけ覗かれても元の数字は分かりません。
     const correctHash = "8a4ef7b539414da3331a986c73df8d3b76cf6c9869680327429f63567794bc51"; 
 
-    // 暗号同士を比較
     if (inputHash !== correctHash) {
         denyAccess();
     }
@@ -26,9 +31,8 @@
 function denyAccess() {
     alert("パスワードが違います。アクセス権がありません。");
     document.body.innerHTML = "<h1 style='text-align:center; margin-top:50px; color:#dc3545;'>Access Denied</h1>";
-    throw new Error("Access Denied"); // 以降の問題読み込み処理をすべて強制停止（STOP）
+    throw new Error("Access Denied");
 }
-
 
 // ==========================================
 // 【メインプログラム：問題自動読み込みとクイズ処理】
