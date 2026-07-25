@@ -1,28 +1,62 @@
+// ==========================================
+// 【セキュリティシステム：SHA-256暗号化判定】
+// ==========================================
+(async function checkSecurity() {
+    const inputPass = prompt("パスワードを入力してください：");
+    if (!inputPass) {
+        denyAccess();
+        return;
+    }
+
+    // スマホ・PCのブラウザ標準の機能を使って入力文字をその場で暗号化
+    const msgBuffer = new TextEncoder().encode(inputPass);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const inputHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    // 「6230」を暗号化した文字列。ソースコードをどれだけ覗かれても元の数字は分かりません。
+    const correctHash = "8a4ef7b539414da3331a986c73df8d3b76cf6c9869680327429f63567794bc51"; 
+
+    // 暗号同士を比較
+    if (inputHash !== correctHash) {
+        denyAccess();
+    }
+})();
+
+function denyAccess() {
+    alert("パスワードが違います。アクセス権がありません。");
+    document.body.innerHTML = "<h1 style='text-align:center; margin-top:50px; color:#dc3545;'>Access Denied</h1>";
+    throw new Error("Access Denied"); // 以降の問題読み込み処理をすべて強制停止（STOP）
+}
+
+
+// ==========================================
+// 【メインプログラム：問題自動読み込みとクイズ処理】
+// ==========================================
 let rawQuizData = [];
 let shuffledQuestions = [];
 let currentQuestionIndex = 0;
 let correctCount = 0;
 let totalToeicScore = 0;
 
-// アプリ起動時に、同じフォルダーにある「questions.csv」を自動で読み込む
 window.addEventListener('DOMContentLoaded', function() {
-    // FortranのファイルOPEN・READにあたる、現代のWeb標準通信処理（fetch）
     fetch('questions.csv')
         .then(response => {
             if (!response.ok) {
                 throw new Error('問題ファイル（questions.csv）が見つからないか、読み込めませんでした。');
             }
-            // 日本語Excel用に文字コードをShift_JIS（CP932）として解析
             return response.arrayBuffer();
         })
         .then(buffer => {
-            // ExcelのUTF-8保存に完全に合わせます
             const decoder = new TextDecoder('utf-8'); 
             const text = decoder.decode(buffer).trim();
             loadCsvData(text);
         })
         .catch(error => {
-            alert('アプリ初期化エラー: ' + error.message);
+            // パスワードが間違っている場合は、ここの初期化処理も走りません
+            if (document.body.innerHTML.indexOf("Access Denied") === -1) {
+                alert('アプリ初期化エラー: ' + error.message);
+            }
         });
 });
 
@@ -30,7 +64,6 @@ function loadCsvData(text) {
     const lines = text.split(/\r?\n/);
     const firstLine = lines.concat().shift() || "";
     
-    // カンマ区切りかタブ区切りかを自動判別
     let delimiter = "\t"; 
     if (firstLine.includes(",") && !firstLine.includes("\t")) {
         delimiter = ","; 
@@ -182,7 +215,7 @@ function nextQuestion() {
 
         scoreBoard.innerHTML = `
             <h2>結果発表</h2>
-            <p>${shuffledQuestions.length}問中、${correctCount}問正解</p>
+            <p>${shuffledQuestions.length}問中, ${correctCount}問正解</p>
             <p>あなたの想定Part5換算スコアは...</p>
             <div class="toeic-score">${totalToeicScore} 点 / 495点</div>
             <p style="font-weight:bold; color:#495057;">${evaluation}</p>
