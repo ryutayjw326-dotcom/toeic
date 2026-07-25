@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOEIC Part5 練習アプリ</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <h1>TOEIC Part5 練習アプリ</h1>
+    
+    <div id="progress" style="text-align: right; font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;"></div>
+    
+    <div id="quiz-container">
+        <div id="badge-area" class="badge-container"></div>
+        <div class="question-box">
+            <p id="question-text" style="margin: 0;"></p>
+        </div>
+        <div id="choices-container"></div>
+        <div id="feedback-area"></div>
+        <button id="next-btn" class="next-btn" style="display:none;" onclick="nextQuestion()">次の問題へ</button>
+    </div>
+
+    <div id="score-container" style="display:none;" class="score-board"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
