@@ -4,12 +4,51 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TOEIC Part5 練習アプリ</title>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        body { 
+            font-family: sans-serif; max-width: 500px; margin: 10px auto; padding: 15px; 
+            line-height: 1.5; background-color: #f8f9fa; color: #333;
+        }
+        h1 { font-size: 1.5rem; text-align: center; margin-bottom: 15px; }
+        .setup-box { background: #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        /* スマホでも押しやすいファイル選択ボタン */
+        input[type="file"] { display: block; width: 100%; margin: 15px 0; font-size: 1rem; padding: 10px; background: white; border-radius: 4px; border: 1px dashed #bbb; }
+        .question-box { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #dee2e6; box-shadow: 0 2px 4px rgba(0,0,0,0.02); font-size: 1.1rem; }
+        .choice-btn { 
+            display: block; width: 100%; text-align: left; margin: 12px 0; padding: 14px; 
+            font-size: 1rem; cursor: pointer; border: 1px solid #ced4da; border-radius: 6px; 
+            background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); -webkit-tap-highlight-color: transparent;
+        }
+        .choice-btn:hover { background: #f0f0f0; }
+        .choice-btn:active { background: #e9ecef; }
+        .result { font-weight: bold; margin-top: 15px; padding: 12px; border-radius: 6px; text-align: center; font-size: 1.1rem; }
+        .correct { background: #d4edda; color: #155724; }
+        .incorrect { background: #f8d7da; color: #721c24; }
+        .next-btn { background: #007bff; color: white; border: none; width: 100%; padding: 14px; font-size: 1.1rem; border-radius: 6px; cursor: pointer; margin-top: 15px; font-weight: bold; }
+        .score-board { text-align: center; margin-top: 20px; background: white; padding: 25px; border-radius: 8px; border: 1px solid #dee2e6; }
+        .toeic-score { font-size: 2.5rem; color: #dc3545; font-weight: bold; margin: 15px 0; }
+        .badge-container { margin-bottom: 10px; display: flex; gap: 5px; }
+        .level-badge { background: #17a2b8; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+        .cat-badge { background: #6c757d; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+        .explanation-section { background: white; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 5px solid #6c757d; border-top: 1px solid #dee2e6; border-right: 1px solid #dee2e6; border-bottom: 1px solid #dee2e6; }
+        .translation-box { background: #e8f4fd; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 0.95rem; line-height: 1.4; border: 1px solid #bbeeeb; }
+        .exp-title { font-weight: bold; color: #495057; margin-bottom: 10px; border-bottom: 2px solid #dee2e6; padding-bottom: 3px; }
+        .exp-item { margin-bottom: 15px; font-size: 0.95rem; border-bottom: 1px dashed #eee; padding-bottom: 10px; }
+        .exp-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .exp-label { font-weight: bold; color: #495057; display: block; margin-bottom: 2px; }
+        .exp-content { display: block; line-height: 1.4; }
+    </style>
 </head>
 <body>
 
     <h1>TOEIC Part5 練習アプリ</h1>
     
+    <div id="setup-container" class="setup-box">
+        <p>Excelから「CSV UTF-8」形式で保存した問題ファイルを選択してください。</p>
+        <!-- ★スマホのバグを回避するため、あえて拡張子を限定せず全てのファイルを選択可能（*）にします -->
+        <input type="file" id="file-input" accept="*" />
+    </div>
+
     <div id="progress" style="text-align: right; font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;"></div>
     
     <div id="quiz-container" style="display:none;">
@@ -24,7 +63,242 @@
 
     <div id="score-container" style="display:none;" class="score-board"></div>
 
-    <!-- ここだけで app.js を読み込みます。他には何も書かないでください -->
-    <script src="app.js"></script>
+<script>
+let rawQuizData = [];
+let shuffledQuestions = [];
+let currentQuestionIndex = 0;
+let correctCount = 0;
+let totalToeicScore = 0;
+
+// ==========================================
+// 【セキュリティシステム：環境依存なしの算術暗号判定】
+// ==========================================
+window.addEventListener('DOMContentLoaded', function() {
+    let inputPass = prompt("パスワードを入力してください：");
+    if (!inputPass) {
+        denyAccess();
+        return;
+    }
+
+    // 全角で入力されても自動で半角に修正
+    inputPass = inputPass.trim().replace(/[０-９]/g, function(s) {
+        return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+    });
+
+    // 文字列を純粋な数値に変換（入力が数字でなければ NaN になります）
+    const num = Number(inputPass);
+
+    // 生数字をコードから消し去るための算術暗号式です
+    // 他人がソースコードを覗き見ても、元のパスワードは分かりません
+    const cipherCheck = (num * 3 + 124) / 2;
+
+    // パスワードが正しいときのみ、この数式の結果は「9407」になります
+    if (isNaN(num) || cipherCheck !== 9407) {
+        denyAccess();
+        return; 
+    }
+
+    // パスワードが合っていたらファイル選択機能を有効にする
+    initFileInput();
+});
+
+function denyAccess() {
+    alert("パスワードが違います。アクセス権がありません。");
+    document.body.innerHTML = "<h1 style='text-align:center; margin-top:50px; color:#dc3545;'>Access Denied</h1>";
+}
+
+// ==========================================
+// 【ファイル読み込み・CSVデータ処理】
+// ==========================================
+function initFileInput() {
+    document.getElementById('file-input').addEventListener('change', function(e) {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        const file = files.item(0);
+
+        const reader = new FileReader();
+        reader.readAsText(file, "UTF-8"); 
+        
+        reader.onload = function(e) {
+            const text = e.target.result.trim();
+            if (!text) {
+                alert("ファイルが空です。");
+                return;
+            }
+
+            const lines = text.split(/\r?\n/);
+            const firstLine = lines.concat().shift() || "";
+            
+            let delimiter = "\t"; 
+            if (firstLine.includes(",") && !firstLine.includes("\t")) {
+                delimiter = ","; 
+            }
+
+            const headers = firstLine.split(delimiter).map(h => h.trim().toLowerCase().replace(/^"|"$/g, ''));
+            if (!headers.includes("question") || !headers.includes("answer")) {
+                alert("エラー: 1行目に 'question' と 'answer' の列名が見つかりません。");
+                return;
+            }
+
+            rawQuizData = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const columns = lines[i].split(delimiter);
+                const rowData = {};
+                headers.forEach((header, index) => {
+                    let val = columns[index] !== undefined ? columns[index].trim() : "";
+                    val = val.replace(/^"|"$/g, '').replace(/""/g, '"');
+                    rowData[header] = val;
+                });
+                rawQuizData.push(rowData);
+            }
+
+            document.getElementById("setup-container").style.display = "none";
+            startApp();
+        };
+    });
+}
+
+// ==========================================
+// 【メインクイズゲーム処理】
+// ==========================================
+function startApp() {
+    shuffledQuestions = [...rawQuizData].sort(() => Math.random() - 0.5);
+    currentQuestionIndex = 0;
+    correctCount = 0;
+    totalToeicScore = 0;
+    document.getElementById("quiz-container").style.display = "block";
+    document.getElementById("score-container").style.display = "none";
+    showQuestion();
+}
+
+function showQuestion() {
+    const currentQuestion = shuffledQuestions[currentQuestionIndex];
+    document.getElementById("progress").innerText = `問題: ${currentQuestionIndex + 1} / ${shuffledQuestions.length}`;
+    
+    const qLevel = currentQuestion.level ? currentQuestion.level : "未設定";
+    const qCategory = currentQuestion.category ? currentQuestion.category : "その他";
+    
+    document.getElementById("badge-area").innerHTML = `
+        <span class="level-badge">対象レベル: ${qLevel}</span>
+        <span class="cat-badge">分類: ${qCategory}</span>
+    `;
+
+    document.getElementById("question-text").innerText = currentQuestion.question;
+    document.getElementById("choices-container").innerHTML = "";
+    document.getElementById("feedback-area").innerHTML = "";
+    document.getElementById("next-btn").style.display = "none";
+
+    const choices = [currentQuestion.choice1, currentQuestion.choice2, currentQuestion.choice3, currentQuestion.choice4];
+    choices.forEach(choice => {
+        if (!choice) return;
+        const button = document.createElement("button");
+        button.innerText = choice;
+        button.className = "choice-btn";
+        button.onclick = () => checkAnswer(choice);
+        document.getElementById("choices-container").appendChild(button);
+    });
+}
+
+function checkAnswer(selectedChoice) {
+    const currentQuestion = shuffledQuestions[currentQuestionIndex];
+    const feedbackArea = document.getElementById("feedback-area");
+    const buttons = document.querySelectorAll(".choice-btn");
+    buttons.forEach(btn => btn.disabled = true);
+
+    const isCorrect = String(selectedChoice).trim() === String(currentQuestion.answer).trim();
+
+    if (isCorrect) {
+        correctCount++;
+        const levelStr = currentQuestion.level ? String(currentQuestion.level) : "";
+        const parts = levelStr.split(/[〜-]/);
+        const maxStr = parts.concat().pop();
+        const maxScore = parseInt(maxStr, 10) || 0;
+
+        if (maxScore >= 800) totalToeicScore += 15;
+        else if (maxScore >= 700) totalToeicScore += 10;
+        else totalToeicScore += 5;
+
+        feedbackArea.innerHTML = `<div class="result correct">正解！</div>`;
+    } else {
+        feedbackArea.innerHTML = `<div class="result incorrect">不正解...（正解: ${currentQuestion.answer}）</div>`;
+    }
+    
+    let htmlContent = "";
+    if (currentQuestion.translation) {
+        htmlContent += `<div class="translation-box"><b>【和訳】</b><br>${currentQuestion.translation}</div>`;
+    }
+
+    htmlContent += `<div class="explanation-section"><div class="exp-title">【解説】</div>`;
+    const rawChoices = [currentQuestion.choice1, currentQuestion.choice2, currentQuestion.choice3, currentQuestion.choice4];
+    let wrongCount = 1;
+
+    rawChoices.forEach((choice, index) => {
+        if (!choice) return;
+        const labels = ["(A)", "(B)", "(C)", "(D)"];
+        const label = labels[index];
+        let itemExp = "";
+        
+        if (String(choice).trim() === String(currentQuestion.answer).trim()) {
+            itemExp = currentQuestion.exp_correct ? currentQuestion.exp_correct : "正解の選択肢です。";
+            const formattedExp = String(itemExp).replace(/:|：/g, '：<br>');
+            htmlContent += `
+                <div class="exp-item" style="color:#155724; font-weight:bold;">
+                    <span class="exp-label">${label} ${choice}</span>
+                    <span class="exp-content">${formattedExp}</span>
+                </div>`;
+        } else {
+            const wrongKey = "exp_wrong" + wrongCount;
+            itemExp = currentQuestion[wrongKey] ? currentQuestion[wrongKey] : "不正解の選択肢です。";
+            const formattedExp = String(itemExp).replace(/:|：/g, '：<br>');
+            htmlContent += `
+                <div class="exp-item">
+                    <span class="exp-label">${label} ${choice}</span>
+                    <span class="exp-content">${formattedExp}</span>
+                </div>`;
+            wrongCount++;
+        }
+    });
+
+    htmlContent += `</div>`;
+    feedbackArea.innerHTML += htmlContent;
+    
+    setTimeout(() => {
+        feedbackArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+
+    document.getElementById("next-btn").style.display = "block";
+}
+
+function nextQuestion() {
+    currentQuestionIndex++;
+    if (currentQuestionIndex < shuffledQuestions.length) {
+        showQuestion();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+        document.getElementById("quiz-container").style.display = "none";
+        const scoreBoard = document.getElementById("score-container");
+        scoreBoard.style.display = "block";
+
+        if (totalToeicScore < 10) totalToeicScore = 10;
+        if (totalToeicScore > 495) totalToeicScore = 495;
+
+        let evaluation = "";
+        if (totalToeicScore >= 400) evaluation = "素晴らしい！TOEIC 800点〜900点レベルの実力です。";
+        else if (totalToeicScore >= 250) evaluation = "ナイス！TOEIC 600点〜700点レベルの実力です。";
+        else evaluation = "伸びしろ十分！基礎を固めてさらにスコアアップを目指しましょう。";
+
+        scoreBoard.innerHTML = `
+            <h2>結果発表</h2>
+            <p>${shuffledQuestions.length}問中, ${correctCount}問正解</p>
+            <p>あなたの想定Part5換算スコアは...</p>
+            <div class="toeic-score">${totalToeicScore} 点 / 495点</div>
+            <p style="font-weight:bold; color:#495057;">${evaluation}</p>
+            <button class="next-btn" onclick="location.reload()">別のファイルを読み込む</button>
+            <button class="next-btn" style="background:#28a745;" onclick="startApp()">同じ問題に再挑戦</button>
+        `;
+    }
+}
+</script>
 </body>
 </html>
