@@ -1,41 +1,5 @@
 // ==========================================
-// 【セキュリティシステム：SHA-256暗号化判定】
-// ==========================================
-(async function checkSecurity() {
-    let inputPass = prompt("パスワードを入力してください：");
-    if (!inputPass) {
-        denyAccess();
-        return;
-    }
-
-    // 【対策】全角数字で入力されても半角に自動変換し、前後の不要な空白も徹底削除
-    inputPass = inputPass.trim().replace(/[０-９]/g, function(s) {
-        return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
-    });
-
-    // 1文字ずつの配列にしてからUTF-8のバイト列に変換（BOMなどの見えないゴミを完全に排除）
-    const charCodes = Array.from(inputPass).map(c => c.charCodeAt(0));
-    const msgBuffer = new Uint8Array(charCodes);
-    
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const inputHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-    const correctHash = "8a4ef7b539414da3331a986c73df8d3b76cf6c9869680327429f63567794bc51"; 
-
-    if (inputHash !== correctHash) {
-        denyAccess();
-    }
-})();
-
-function denyAccess() {
-    alert("パスワードが違います。アクセス権がありません。");
-    document.body.innerHTML = "<h1 style='text-align:center; margin-top:50px; color:#dc3545;'>Access Denied</h1>";
-    throw new Error("Access Denied");
-}
-
-// ==========================================
-// 【メインプログラム：問題自動読み込みとクイズ処理】
+// 【セキュリティシステム：1行ずつ確実に実行する版】
 // ==========================================
 let rawQuizData = [];
 let shuffledQuestions = [];
@@ -43,7 +7,16 @@ let currentQuestionIndex = 0;
 let correctCount = 0;
 let totalToeicScore = 0;
 
-window.addEventListener('DOMContentLoaded', function() {
+// 起動時に一番最初に実行されるサブルーチン
+window.addEventListener('DOMContentLoaded', async function() {
+    // 1. まずパスワード入力を求め、正解するまで絶対に次に進ませない
+    const isAuthorized = await checkSecurity();
+    if (!isAuthorized) {
+        denyAccess();
+        return; // プログラムをここで完全に終了（STOP）
+    }
+
+    // 2. パスワードが完全一致した後に、初めてCSVファイルの読み込みを開始する
     fetch('questions.csv')
         .then(response => {
             if (!response.ok) {
@@ -57,13 +30,41 @@ window.addEventListener('DOMContentLoaded', function() {
             loadCsvData(text);
         })
         .catch(error => {
-            // パスワードが間違っている場合は、ここの初期化処理も走りません
-            if (document.body.innerHTML.indexOf("Access Denied") === -1) {
-                alert('アプリ初期化エラー: ' + error.message);
-            }
+            alert('アプリ初期化エラー: ' + error.message);
         });
 });
 
+// パスワードを暗号化してチェックする専用関数
+async function checkSecurity() {
+    let inputPass = prompt("パスワードを入力してください：");
+    if (!inputPass) return false;
+
+    // 全角数字を半角数字に自動変換
+    inputPass = inputPass.trim().replace(/[０-９]/g, function(s) {
+        return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+    });
+
+    // 入力された文字（6230）をその場で暗号化
+    const msgBuffer = new TextEncoder().encode(inputPass);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const inputHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    // 「6230」の正しいハッシュ値
+    const correctHash = "bc8b3fa73f309fa49673cc8e7fa56a297e685f0ef3d11c7fa98897f267c7e53f"; 
+
+    // 暗号が完全に一致していれば true、違っていれば false を返す
+    return (inputHash === correctHash);
+}
+
+function denyAccess() {
+    alert("パスワードが違います。アクセス権がありません。");
+    document.body.innerHTML = "<h1 style='text-align:center; margin-top:50px; color:#dc3545;'>Access Denied</h1>";
+}
+
+// ==========================================
+// 【メインクイズ処理プログラム】
+// ==========================================
 function loadCsvData(text) {
     const lines = text.split(/\r?\n/);
     const firstLine = lines.concat().shift() || "";
