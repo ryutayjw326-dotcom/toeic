@@ -5,13 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TOEIC Part5 練習アプリ</title>
     <style>
-        body { 
-            font-family: sans-serif; max-width: 500px; margin: 10px auto; padding: 15px; 
-            line-height: 1.5; background-color: #f8f9fa; color: #333;
-        }
+        body { font-family: sans-serif; max-width: 500px; margin: 10px auto; padding: 15px; line-height: 1.5; background-color: #f8f9fa; color: #333; }
         h1 { font-size: 1.5rem; text-align: center; margin-bottom: 15px; }
         .setup-box { background: #e9ecef; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        /* スマホでも押しやすいファイル選択ボタン */
         input[type="file"] { display: block; width: 100%; margin: 15px 0; font-size: 1rem; padding: 10px; background: white; border-radius: 4px; border: 1px dashed #bbb; }
         .question-box { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #dee2e6; box-shadow: 0 2px 4px rgba(0,0,0,0.02); font-size: 1.1rem; }
         .choice-btn { 
@@ -24,7 +20,7 @@
         .result { font-weight: bold; margin-top: 15px; padding: 12px; border-radius: 6px; text-align: center; font-size: 1.1rem; }
         .correct { background: #d4edda; color: #155724; }
         .incorrect { background: #f8d7da; color: #721c24; }
-        .next-btn { background: #007bff; color: white; border: none; width: 100%; padding: 14px; font-size: 1.1rem; border-radius: 6px; cursor: pointer; margin-top: 15px; font-weight: bold; }
+        .next-btn { background: #007bff; color: white; border: none; width: 100%; padding: 14px; font-size: 1.1rem; border-radius: 6px; cursor: pointer; margin-top: 15px; font-weight: bold; width: 100%; }
         .score-board { text-align: center; margin-top: 20px; background: white; padding: 25px; border-radius: 8px; border: 1px solid #dee2e6; }
         .toeic-score { font-size: 2.5rem; color: #dc3545; font-weight: bold; margin: 15px 0; }
         .badge-container { margin-bottom: 10px; display: flex; gap: 5px; }
@@ -45,8 +41,8 @@
     
     <div id="setup-container" class="setup-box">
         <p>Excelから「CSV UTF-8」形式で保存した問題ファイルを選択してください。</p>
-        <!-- ★スマホのバグを回避するため、あえて拡張子を限定せず全てのファイルを選択可能（*）にします -->
-        <input type="file" id="file-input" accept="*" />
+        <!-- ★【変更点】クラウド（Googleドライブ/iCloud）のファイルも正しく選べる正しい指定に変更 -->
+        <input type="file" id="file-input" accept=".csv, .txt, text/csv, text/plain" />
     </div>
 
     <div id="progress" style="text-align: right; font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;"></div>
@@ -71,7 +67,7 @@ let correctCount = 0;
 let totalToeicScore = 0;
 
 // ==========================================
-// 【セキュリティシステム：環境依存なしの算術暗号判定】
+// 【セキュリティシステム：算術暗号判定】
 // ==========================================
 window.addEventListener('DOMContentLoaded', function() {
     let inputPass = prompt("パスワードを入力してください：");
@@ -80,25 +76,21 @@ window.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
-    // 全角で入力されても自動で半角に修正
+    // 全角で「６２３０」と入力されても自動で半角「6230」に修正
     inputPass = inputPass.trim().replace(/[０-９]/g, function(s) {
         return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
     });
 
-    // 文字列を純粋な数値に変換（入力が数字でなければ NaN になります）
     const num = Number(inputPass);
-
-    // 生数字をコードから消し去るための算術暗号式です
-    // 他人がソースコードを覗き見ても、元のパスワードは分かりません
     const cipherCheck = (num * 3 + 124) / 2;
 
-    // パスワードが正しいときのみ、この数式の結果は「9407」になります
+    // パスワードが「6230」のときのみ「9407」になります
     if (isNaN(num) || cipherCheck !== 9407) {
         denyAccess();
         return; 
     }
 
-    // パスワードが合っていたらファイル選択機能を有効にする
+    // パスワード承認後にファイル選択を有効化
     initFileInput();
 });
 
