@@ -44,8 +44,8 @@ function initFileInput() {
                 rawQuizData.push(rowData);
             }
 
-            if (rawQuizData.length < 6) {
-                alert(`CSVファイル内の問題数が足りません（現在: ${rawQuizData.length}問）。正確なスコア換算のため、6問以上のデータを含むファイルを用意してください。`);
+            if (rawQuizData.length < 1) {
+                alert("CSVファイル内に問題データが見つかりません。問題が入ったファイルを用意してください。");
                 return;
             }
 
@@ -55,6 +55,7 @@ function initFileInput() {
     });
 }
 
+// ★前回消えてしまっていた重要なパース関数
 function parseCSVLine(line, delimiter) {
     const result = [];
     let current = '';
@@ -84,7 +85,7 @@ function parseCSVLine(line, delimiter) {
 
 function askQuestionCount() {
     const maxCount = rawQuizData.length;
-    let inputCount = prompt(`全 ${maxCount} 問見つかりました。\n何問解答しますか？（6 〜 ${maxCount} の数値を半角で入力）`, maxCount);
+    let inputCount = prompt(`全 ${maxCount} 問見つかりました。\n何問解答しますか？（1 〜 ${maxCount} の数値を半角で入力）`, maxCount);
     
     if (inputCount === null) {
         document.getElementById("setup-container").style.display = "block";
@@ -98,12 +99,12 @@ function askQuestionCount() {
 
     const count = parseInt(inputCount, 10);
 
-    if (isNaN(count) || count < 6 || count > maxCount) {
-        alert(`無効な数値です。正確なTOEIC換算を行うため、6 から ${maxCount} までの数値を入力してください。`);
+    if (isNaN(count) || count < 1 || count > maxCount) {
+        alert(`無効な数値です。1 から ${maxCount} までの数値を入力してください。`);
         askQuestionCount(); 
         return;
     }
 
     targetQuestionCount = count;
-    startApp(); // quizEngine.jsの関数を起動
+    startApp(); 
 }

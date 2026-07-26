@@ -25,7 +25,10 @@
         <div id="choices-container"></div>
         <div id="feedback-area"></div>
         <button id="next-btn" class="next-btn" style="display:none;" onclick="nextQuestion()">次の問題へ</button>
-    </div>
+        
+        <!-- ★新しく追加：途中で終わるためのボタン -->
+        <button id="quit-btn" class="next-btn" style="background: #dc3545; margin-top: 10px;" onclick="finishQuizEarly()">途中で採点して終わる</button>
+    </div> <!-- quiz-containerの閉じタグ -->
 
     <div id="score-container" style="display:none;" class="score-board"></div>
 

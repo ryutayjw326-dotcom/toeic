@@ -167,3 +167,57 @@ function speakSentence(text) {
     
     window.speechSynthesis.speak(utterance);
 }
+// ★新しく追加：途中でクイズを終わらせて採点画面へ進む機能
+function finishQuizEarly() {
+    // 現在までに実際に解いた問題数を計算
+    // （まだ解答ボタンを押していない状態なら現在のインデックス、すでに解答済みならインデックス+1）
+    const isAnswered = document.getElementById("next-btn").style.display === "block";
+    const answeredCount = isAnswered ? currentQuestionIndex + 1 : currentQuestionIndex;
+
+    // まだ1問も解いていない場合は終われないようにガード
+    if (answeredCount === 0) {
+        alert("まだ1問も解答していません。少なくとも1問以上解答してから終了してください。");
+        return;
+    }
+
+    if (!confirm(`現在 ${answeredCount} 問まで解いています。ここで終了して採点しますか？`)) {
+        return; // キャンセルされたら何もしない
+    }
+
+    // 読み上げ音声が流れていたら止める
+    if (window.speechSynthesis && window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+    }
+
+    // ★重要：出題リスト（shuffledQuestions）を、今解き終わった問題までの長さに強制的に縮小する
+    // これにより、scoreCalculator.js側が「この問題数で全行程が終了した」と誤認して正しく計算してくれます
+    shuffledQuestions = shuffledQuestions.slice(0, answeredCount);
+    currentQuestionIndex = answeredCount; 
+
+    // scoreCalculator.jsの終了処理を直接呼び出す
+    // インデックスが配列の長さと同じになっているため、自動的に採点画面へ移行します
+    nextQuestion();
+}
+// ★修正：1問からでも途中で終わらせて採点画面へ進めるように調整
+function finishQuizEarly() {
+    const isAnswered = document.getElementById("next-btn").style.display === "block";
+    const answeredCount = isAnswered ? currentQuestionIndex + 1 : currentQuestionIndex;
+
+    if (answeredCount === 0) {
+        alert("まだ1問も解答していません。少なくとも1問以上解答してから終了してください。");
+        return;
+    }
+
+    if (!confirm(`現在 ${answeredCount} 問まで解いています。ここで終了して採点しますか？\n（※合計6問未満の場合はTOEIC換算スコアは表示されません）`)) {
+        return; 
+    }
+
+    if (window.speechSynthesis && window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+    }
+
+    shuffledQuestions = shuffledQuestions.slice(0, answeredCount);
+    currentQuestionIndex = answeredCount; 
+
+    nextQuestion();
+}
