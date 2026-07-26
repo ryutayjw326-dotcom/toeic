@@ -84,12 +84,11 @@ function checkAnswer(selectedChoice) {
         completedSentence = `${rawQuestion} <br>→ <b>正解単語: ${correctAnswer}</b>`;
     }
 
-    // 和訳の上に「完成した英文（音読ボタン付き）」を表示するボックス
+    // 和訳の上に「完成した英文」を表示するボックス
     htmlContent += `
-        <div style="background: #fff; border: 1px solid #ced4da; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 1.05rem; line-height: 1.4;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+        <div style="background: #fff; border: 1px solid #ced4da; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 1.05rem; line-height: 1.4; word-spacing: 0.15em;"> <!-- ★ここに word-spacing: 0.15em; を追加 -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; word-spacing: normal;"> <!-- 見出しやボタンは通常の間隔に戻す -->
                 <b>【英文全文】</b>
-                <!-- ★音読ボタン（クリックすると再生。スピーカー絵文字付き） -->
                 <button onclick="speakSentence('${correctAnswer ? rawQuestion.replace(/-{2,}/g, correctAnswer).replace(/_{2,}/g, correctAnswer).replace(/\(\s*\)/g, correctAnswer).replace(/'/g, "\\'") : ""}')" 
                         style="background: #e9ecef; border: 1px solid #ced4da; padding: 4px 10px; border-radius: 4px; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 4px;">
                     🔊 音読する
