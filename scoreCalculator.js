@@ -10,27 +10,76 @@ function nextQuestion() {
 
         const totalQuestions = shuffledQuestions.length;
         
-        let totalWeight = 0;
+        // ★新ロジック：難易度ごとの「配点」と「上限値」をベースに計算
+        let maxPossibleCeiling = 250; // 基本のスコア上限（解いた問題の最高難易度によって変動）
+        let earnedPoints = 0;        // 獲得した実質ポイント
+        let totalWeight = 0;         // 出題された問題の総ウエイト
+
         shuffledQuestions.forEach(q => {
             const levelStr = q.level ? String(q.level) : "";
             const parts = levelStr.split(/[〜-]/);
             const maxStr = parts.concat().pop();
             const maxScore = parseInt(maxStr, 10) || 600;
-            if (maxScore >= 800) totalWeight += 1.2;
-            else if (maxScore >= 700) totalWeight += 1.1;
-            else totalWeight += 1.0;
+
+            // ① 出題された問題に応じて、このテスト全体の「スコア上限（天井）」を引き上げる
+            if (maxScore >= 800) {
+                if (maxPossibleCeiling < 495) maxPossibleCeiling = 495;
+            } else if (maxScore >= 700) {
+                if (maxPossibleCeiling < 380) maxPossibleCeiling = 380; // 700点レベルまでなら上限は380点付近
+            }
+
+            // ② 問題の難易度に応じた配点のウエイト（難しいほど配点が高い）
+            let weight = 1.0;  // 600点以下
+            if (maxScore >= 800) weight = 2.5;     // 800点以上は配点を2.5倍に高くする
+            else if (maxScore >= 700) weight = 1.6; // 700点レベルは1.6倍
+
+            totalWeight += weight;
+
+            // ③ 正解していたら、その問題の配点（ウエイト）をボーナスとして獲得
+            // （checkAnswer側ではなく、ここで一括して正誤判定からポイント化します）
+            const isCorrect = String(q.userAnswer).trim() === String(q.answer).trim(); 
+            // ※注意：既存の「正解数」とは別に、各問題の正誤を判定するために
+            // quizEngine.js側でユーザーの解答を保存する処理を補う必要があります（後述）
         });
 
-        let calculatedScore = 0;
-        if (correctCount > 0) {
-            calculatedScore = (totalToeicScore / totalQuestions) * 495;
-            if (correctCount === totalQuestions) {
-                calculatedScore = 495;
+        // 💡 上記のウエイト計算を安全に行うため、以前の totalToeicScore の蓄積方法ではなく、
+        // 最終的な「正解した問題の難易度ウエイトの合計」をここで再計算します。
+        let correctWeightSum = 0;
+        shuffledQuestions.forEach(q => {
+            const levelStr = q.level ? String(q.level) : "";
+            const parts = levelStr.split(/[〜-]/);
+            const maxStr = parts.concat().pop();
+            const maxScore = parseInt(maxStr, 10) || 600;
+
+            // 各問題が正解だったかチェック
+            // （quizEngine.jsのcheckAnswerで、選択された答えを記録するように後ほど1行追加します）
+            if (q.selectedAnswer === q.answer) {
+                if (maxScore >= 800) correctWeightSum += 2.5;
+                else if (maxScore >= 700) correctWeightSum += 1.6;
+                else correctWeightSum += 1.0;
             }
+        });
+
+        // 【計算】獲得したウエイト割合 × 495点
+        let calculatedScore = 0;
+        if (totalWeight > 0) {
+            calculatedScore = (correctWeightSum / totalWeight) * 495;
         }
 
+        // ★最重要：簡単な問題ばかり解いた場合は、いくら全問正解でも設定した天井スコアを超えないようにする
+        if (calculatedScore > maxPossibleCeiling) {
+            calculatedScore = maxPossibleCeiling;
+        }
+
+        // 全問正解の場合は、出題に高難易度が含まれていれば強制的に495点満点にする
+        if (correctCount === totalQuestions && maxPossibleCeiling === 495) {
+            calculatedScore = 495;
+        }
+
+        // 5点刻みに丸める
         let finalToeicScore = Math.round(calculatedScore / 5) * 5;
 
+        // スコアの最低・最高ガード
         if (finalToeicScore < 10 && correctCount > 0) finalToeicScore = 10;
         if (finalToeicScore === 0 && correctCount === 0) finalToeicScore = 5;
         if (finalToeicScore > 495) finalToeicScore = 495;

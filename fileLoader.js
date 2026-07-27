@@ -1,5 +1,5 @@
 // ==========================================
-// 【ファイル読み込み・CSVデータ処理】
+// 【ファイル読み込み・CSVデータ処理：Part5/6両対応版】
 // ==========================================
 function initFileInput() {
     document.getElementById('file-input').addEventListener('change', function(e) {
@@ -25,9 +25,12 @@ function initFileInput() {
                 delimiter = ","; 
             }
 
+            // 列名の存在チェックをPart5/Part6共通で通るように柔軟に変更
             const headers = parseCSVLine(firstLine, delimiter).map(h => h.trim().toLowerCase());
-            if (!headers.includes("question") || !headers.includes("answer")) {
-                alert("エラー: 1行目に 'question' と 'answer' の列名が見つかりません。");
+            
+            // 最低限「part」列だけは必須とする（これで5か6かを判定する）
+            if (!headers.includes("part")) {
+                alert("エラー: 1行目に 'part' の列名が見つかりません。");
                 return;
             }
 
@@ -55,7 +58,7 @@ function initFileInput() {
     });
 }
 
-// ★前回消えてしまっていた重要なパース関数
+// ★CSVパース関数（ロジックはそのまま維持）
 function parseCSVLine(line, delimiter) {
     const result = [];
     let current = '';
@@ -83,9 +86,15 @@ function parseCSVLine(line, delimiter) {
     return result;
 }
 
+// ユーザーに問題数（または長文セット数）を尋ねる関数
 function askQuestionCount() {
     const maxCount = rawQuizData.length;
-    let inputCount = prompt(`全 ${maxCount} 問見つかりました。\n何問解答しますか？（1 〜 ${maxCount} の数値を半角で入力）`, maxCount);
+    
+    // 読み込んだ最初のデータのpartをチェックして案内文字を変える
+    const firstItemPart = rawQuizData[0].part;
+    const unitText = (firstItemPart === "6") ? "長文セット" : "問";
+
+    let inputCount = prompt(`全 ${maxCount} ${unitText}見つかりました。\n何${unitText}解答しますか？（1 〜 ${maxCount} の数値を半角で入力）`, maxCount);
     
     if (inputCount === null) {
         document.getElementById("setup-container").style.display = "block";

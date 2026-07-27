@@ -3,41 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOEIC Part5 練習アプリ</title>
+    <title>TOEIC Part6 練習アプリ</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <h1>TOEIC Part5 練習アプリ</h1>
+    <h1>TOEIC Part6 練習アプリ</h1>
     
     <div id="setup-container" class="setup-box">
         <p>Excelから「CSV UTF-8」形式で保存した問題ファイルを選択してください。</p>
         <input type="file" id="file-input" accept=".csv, .txt, text/csv, text/plain" />
     </div>
 
+    <!-- 進捗バーや問題数の表示 -->
     <div id="progress" style="text-align: right; font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;"></div>
     
+    <!-- クイズ画面のメインエリア -->
     <div id="quiz-container" style="display:none;">
         <div id="badge-area" class="badge-container"></div>
-        <div class="question-box">
-            <p id="question-text" style="margin: 0;"></p>
-        </div>
-        <div id="choices-container"></div>
-        <div id="feedback-area"></div>
-        <button id="next-btn" class="next-btn" style="display:none;" onclick="nextQuestion()">次の問題へ</button>
         
-        <!-- ★新しく追加：途中で終わるためのボタン -->
-        <button id="quit-btn" class="next-btn" style="background: #dc3545; margin-top: 10px;" onclick="finishQuizEarly()">途中で採点して終わる</button>
-    </div> <!-- quiz-containerの閉じタグ -->
+        <!-- 上下（または左右）に分割管理するためのメインコンテナ -->
+        <div class="part6-layout">
+            
+            <!-- 【上部固定】長文・問題文を表示するボックス -->
+            <div id="question-text" class="passage-box"></div>
+
+            <!-- 【下部スクロール】問題と選択肢を表示するボックス -->
+            <div class="questions-scroll-box">
+                <div id="choices-container"></div>
+                <div id="feedback-area"></div>
+
+                <!-- 操作ボタンエリア -->
+                <div class="button-area">
+                    <button id="next-btn" class="next-btn" style="display:none;" onclick="nextQuestion()">次の問題へ</button>
+                    <button id="quit-btn" class="next-btn" style="background: #dc3545; margin-top: 10px;" onclick="finishQuizEarly()">途中で採点して終わる</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
 
     <div id="score-container" style="display:none;" class="score-board"></div>
 
-    <!-- ★変更：JavaScriptを役割別に順番に読み込む -->
     <script>
-        // すべてのファイルで共通して使うグローバル変数
+        // グローバル変数（Part6用にインデックスの意味を「長文の番号」に変更します）
         let rawQuizData = [];
         let shuffledQuestions = [];
-        let currentQuestionIndex = 0;
+        let currentQuestionIndex = 0; // ★Part6では「現在の長文の番号」として扱います
         let correctCount = 0;
         let totalToeicScore = 0;
         let targetQuestionCount = 0;
