@@ -13,9 +13,38 @@
     <div id="setup-container" class="setup-box">
         <p>Excelから「CSV UTF-8」形式で保存した問題ファイルを選択してください。</p>
         <input type="file" id="file-input" accept=".csv, .txt, text/csv, text/plain" />
+        
+        <!-- 👇 【画面一体型】設定・スタートエリア（最初は非表示） -->
+        <div id="config-area" style="display: none; margin-top: 20px; border-top: 1px dashed #bbb; padding-top: 15px; text-align: left;">
+            
+            <!-- ① モード選択（ラジオボタンでスッキリ選択） -->
+            <p style="font-weight: bold; color: #495057; margin-bottom: 8px;">📊 出題モード：</p>
+            <div style="margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px;">
+                <label style="cursor: pointer;"><input type="radio" name="play-mode" value="all" checked onchange="updateMaxCountHint()"> 🌟 全パーツからランダム（本番同様）</label>
+                <label style="cursor: pointer;"><input type="radio" name="play-mode" value="part5" onchange="updateMaxCountHint()"> 📝 Part 5 のみ抽出</label>
+                <label style="cursor: pointer;"><input type="radio" name="play-mode" value="part6" onchange="updateMaxCountHint()"> 📖 Part 6 のみ抽出</label>
+                <label style="cursor: pointer;"><input type="radio" name="play-mode" value="part7" onchange="updateMaxCountHint()"> 📚 Part 7 のみ抽出</label>
+            </div>
+
+            <!-- ② 問題数入力欄 -->
+            <p style="font-weight: bold; color: #495057; margin-bottom: 5px;">🔢 出題数：</p>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+                <input type="number" id="quiz-count-input" min="1" style="width: 80px; padding: 8px; font-size: 1rem; border-radius: 4px; border: 1px solid #ced4da;" />
+                <span id="max-count-hint" style="font-size: 0.9rem; color: #6c757d;"></span>
+            </div>
+
+            <!-- ③ スタートボタン -->
+            <button class="next-btn" style="background: #28a745; margin-top: 5px;" onclick="validateAndStartQuiz()">🚀 問題スタート！</button>
+            
+            <!-- 👇 【新設】本番モード専用スタートボタン -->
+            <button class="next-btn" style="background: #e0a800; color: #333; margin-top: 15px; font-size: 1.15rem; border: 2px solid #d39e00;" onclick="startMockExamMode()">🏆 本番サンプリングモードで開始（リーディング全100問）</button>
+        </div>
     </div>
 
     <!-- 進捗バーや問題数の表示 -->
+    <!-- 👇 ここにタイマー表示エリアを新設 -->
+    <div id="timer-display" style="display:none; text-align: center; font-size: 1.5rem; font-weight: bold; color: #dc3545; background: #fff3cd; border: 1px solid #ffeeba; padding: 8px; border-radius: 6px; margin-bottom: 10px; position: sticky; top: 0; z-index: 1000;">⏱ 残り時間: 75:00</div>
+    
     <div id="progress" style="text-align: right; font-size: 0.9rem; color: #6c757d; margin-bottom: 5px;"></div>
     
     <!-- クイズ画面のメインエリア -->
@@ -56,7 +85,7 @@
     </script>
     <script src="auth.js"></script>
     <script src="fileLoader.js"></script>
-    <script src="quizEngine.js"></script>
     <script src="scoreCalculator.js"></script>
+    <script src="quizEngine.js"></script>
 </body>
 </html>

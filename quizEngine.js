@@ -1,10 +1,26 @@
 // ==========================================
-// 【Part 5/6/7 自動判別・メインクイズゲーム処理】
+// 【本番モード・試験中解説非表示版（quizEngine.js）】
 // ==========================================
 
+let quizTimerInterval = null;
+let quizTimeLeftSeconds = 75 * 60; 
+let isMockExamModeActive = false;  
+
 function startApp() {
-    const allShuffled = [...rawQuizData].sort(() => Math.random() - 0.5);
-    shuffledQuestions = allShuffled.slice(0, targetQuestionCount);
+    isMockExamModeActive = (rawQuizData.length > 0 && String(rawQuizData[0].part).trim() === "5" && String(rawQuizData[rawQuizData.length - 1].part).trim() === "7");
+
+    if (isMockExamModeActive) {
+        const part5List = rawQuizData.filter(q => String(q.part).trim() === "5").sort(() => Math.random() - 0.5);
+        const part6List = rawQuizData.filter(q => String(q.part).trim() === "6").sort(() => Math.random() - 0.5);
+        const part7List = rawQuizData.filter(q => String(q.part).trim() === "7").sort(() => Math.random() - 0.5);
+        shuffledQuestions = [...part5List, ...part6List, ...part7List];
+        initQuizTimer();
+    } else {
+        const allShuffled = [...rawQuizData].sort(() => Math.random() - 0.5);
+        shuffledQuestions = allShuffled.slice(0, targetQuestionCount);
+        document.getElementById("timer-display").style.display = "none";
+        clearInterval(quizTimerInterval);
+    }
     
     currentQuestionIndex = 0;
     correctCount = 0;
@@ -14,27 +30,62 @@ function startApp() {
     showQuestion();
 }
 
+function initQuizTimer() {
+    clearInterval(quizTimerInterval);
+    quizTimeLeftSeconds = 75 * 60; 
+    const timerDisplay = document.getElementById("timer-display");
+    timerDisplay.style.display = "block";
+    timerDisplay.style.color = "#dc3545";
+    timerDisplay.style.background = "#fff3cd";
+
+    quizTimerInterval = setInterval(() => {
+        quizTimeLeftSeconds--;
+
+        if (quizTimeLeftSeconds <= 0) {
+            clearInterval(quizTimerInterval);
+            timerDisplay.innerText = "⏱ 時間切れ！";
+            if (confirm("75分が経過しました！\nここで終了して採点する場合は「OK」を、\nこのまま延長して解き続ける場合は「キャンセル」を押してください。")) {
+                shuffledQuestions = shuffledQuestions.slice(0, currentQuestionIndex + 1);
+                currentQuestionIndex = shuffledQuestions.length;
+                nextQuestion(); 
+            } else {
+                timerDisplay.innerText = "⏱ 制限時間終了（延長して挑戦中）";
+                timerDisplay.style.color = "#6c757d";
+                timerDisplay.style.background = "#e2e3e5";
+            }
+            return;
+        }
+
+        const minutes = Math.floor(quizTimeLeftSeconds / 60);
+        const seconds = quizTimeLeftSeconds % 60;
+        timerDisplay.innerText = `⏱ 残り時間: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }, 1000);
+}
+
 function showQuestion() {
     const currentQuestion = shuffledQuestions[currentQuestionIndex];
-    const qPart = String(currentQuestion.part || "5").trim(); // 指定がなければPart5扱い
+    const qPart = String(currentQuestion.part || "5").trim();
     
-    // 進捗の表示切り替え
     if (qPart === "5") {
         document.getElementById("progress").innerText = `問題: ${currentQuestionIndex + 1} / ${shuffledQuestions.length}`;
     } else {
         document.getElementById("progress").innerText = `長文セット: ${currentQuestionIndex + 1} / ${shuffledQuestions.length}`;
     }
     
-    const qLevel = currentQuestion.level ? currentQuestion.level : "未設定";
-    const qCategory = currentQuestion.category ? currentQuestion.category : "その他";
-    
-    document.getElementById("badge-area").innerHTML = `
-        <span class="level-badge" style="background:#6f42c1;">Part ${qPart}</span>
-        <span class="level-badge">対象レベル: ${qLevel}</span>
-        <span class="cat-badge">分類: ${qCategory}</span>
-    `;
+    if (isMockExamModeActive) {
+        document.getElementById("badge-area").innerHTML = `
+            <span class="level-badge" style="background:#6f42c1; padding: 6px 12px; font-size: 0.85rem;">Part ${qPart}</span>
+        `;
+    } else {
+        const qLevel = currentQuestion.level ? currentQuestion.level : "未設定";
+        const qCategory = currentQuestion.category ? currentQuestion.category : "その他";
+        document.getElementById("badge-area").innerHTML = `
+            <span class="level-badge" style="background:#6f42c1;">Part ${qPart}</span>
+            <span class="level-badge">対象レベル: ${qLevel}</span>
+            <span class="cat-badge">分類: ${qCategory}</span>
+        `;
+    }
 
-    // 画面パーツの初期化
     const qTextElement = document.getElementById("question-text");
     const choicesContainer = document.getElementById("choices-container");
     const feedbackArea = document.getElementById("feedback-area");
@@ -44,66 +95,62 @@ function showQuestion() {
     document.getElementById("next-btn").style.display = "none";
 
     // ------------------------------------------
-    // 【分岐処理①】Part 5 の場合の画面表示 (1問1答型)
+    // 【分岐処理①】Part 5 の画面表示
     // ------------------------------------------
     if (qPart === "5") {
         let displayQuestionText = currentQuestion.question || "";
-        // 縦棒記号「|」をHTMLの改行タグ「<br>」に一括変換する
         displayQuestionText = displayQuestionText.replace(/\|/g, "<br>");
         displayQuestionText = displayQuestionText.replace(/-{2,}/g, function(match) {
             return `<span style="white-space: nowrap;">${match}</span>`;
         });
-        qTextElement.className = "question-box"; // Part5用の見た目に切り替え
+        qTextElement.className = "question-box"; 
         qTextElement.innerHTML = displayQuestionText;
 
         const choices = [currentQuestion.choice1, currentQuestion.choice2, currentQuestion.choice3, currentQuestion.choice4];
+        choicesContainer.innerHTML = ""; // 念のための初期化ガード
+        
         choices.forEach(choice => {
             if (!choice) return;
             const button = document.createElement("button");
             button.innerText = choice;
             button.className = "choice-btn";
-            button.onclick = () => checkPart5Answer(choice);
+            
+            // 💡 関数名の大文字小文字を完全に一致させ、確実に応答するように修正
+            button.onclick = function() {
+                checkPart5Answer(choice);
+            };
             choicesContainer.appendChild(button);
         });
     } 
-    // ------------------------------------------
-    // 【分岐処理②】Part 6 または Part 7 の場合の画面表示 (長文一括型)
-    // ------------------------------------------
     else if (qPart === "6" || qPart === "7") {
-            let displayPassageText = currentQuestion.passage || currentQuestion.question || "";
-            displayPassageText = displayPassageText.replace(/\|/g, "<br>");
+        let displayPassageText = currentQuestion.passage || currentQuestion.question || "";
+        displayPassageText = displayPassageText.replace(/\|/g, "<br>");
 
-            // ★【修正版】数字の「1」〜「4」の前後にあるスペースや記号を巻き込まず、数字だけを確実に (1) に変える
-            if (String(qPart).trim() === "6") {
-                for (let i = 1; i <= 4; i++) {
-                    // 数字の前にスペースがあり、後ろにスペースかカンマ・ピリオドが来る場合を安全に狙い撃ち
-                    const numRegex1 = new RegExp(`(\\s)${i}(\\s|\\.|\\,)`, "g");
-                    displayPassageText = displayPassageText.replace(numRegex1, `$1<b>(${i})</b>$2`);
-            
-                    // 文頭など、前後に特殊な文字がある場合の予備置換
-                    const numRegex2 = new RegExp(`([^\\d\\w])${i}([^\\d\\w])`, "g");
-                    displayPassageText = displayPassageText.replace(numRegex2, `$1<b>(${i})</b>$2`);
-                }
+        if (String(qPart).trim() === "6") {
+            for (let i = 1; i <= 4; i++) {
+                const numRegex = new RegExp(`(?<![\\d\\:\\.])\\b${i}\\b(?![\\:\\.\\d])`, "g");
+                displayPassageText = displayPassageText.replace(numRegex, `<b>(${i})</b>`);
             }
+        }
 
-            qTextElement.className = "passage-box";
-            qTextElement.innerHTML = displayPassageText;
+        qTextElement.className = "passage-box";
+        qTextElement.innerHTML = displayPassageText;
 
-        // Part 7は問題数が大問ごとに2〜5問と可変するため、データが存在する最大5問分ループする
+        // 解答データの初期化ガード
+        if (!currentQuestion.userAnswers) currentQuestion.userAnswers = {};
+
         for (let i = 1; i <= 5; i++) {
             const c1 = currentQuestion[`q${i}_choice1`];
-            if (!c1) continue; // choice1が空ならその問題番号は存在しないとみなしてスキップ
+            if (!c1) continue; 
 
             const qNum = currentQuestion[`q${i}_num`] || i;
-            const qQuestionText = currentQuestion[`q${i}_question`] || ""; // Part7用の設問文
+            const qQuestionText = currentQuestion[`q${i}_question`] || ""; 
             const choices = [c1, currentQuestion[`q${i}_choice2`], currentQuestion[`q${i}_choice3`], currentQuestion[`q${i}_choice4`]];
 
-            // 問題カード
             const qCard = document.createElement("div");
             qCard.className = "part6-question-card";
             qCard.id = `q-card-${i}`;
 
-            // 問題タイトル（Part 7なら設問テキストも一緒に表示）
             const qTitle = document.createElement("div");
             qTitle.className = "part6-q-number";
             if (qPart === "7" && qQuestionText) {
@@ -113,17 +160,21 @@ function showQuestion() {
             }
             qCard.appendChild(qTitle);
 
-            // 4択ボタン
             choices.forEach(choice => {
                 if (!choice) return;
                 const button = document.createElement("button");
                 button.innerText = choice;
                 button.className = `choice-btn q${i}-btns`;
+                
+                // もしすでに選んだ記憶があればハイライト（中途終了時などの再描画対策）
+                if (currentQuestion.userAnswers[i] === String(choice).trim()) {
+                    button.style.background = "#e8f4fd";
+                }
+
                 button.onclick = () => selectMultiAnswer(i, choice, button);
                 qCard.appendChild(button);
             });
 
-            // 解説エリアの空箱
             const cardFeedback = document.createElement("div");
             cardFeedback.id = `card-feedback-${i}`;
             qCard.appendChild(cardFeedback);
@@ -131,96 +182,89 @@ function showQuestion() {
             choicesContainer.appendChild(qCard);
         }
 
-        // 一括答え合わせボタン
         const checkAllBtn = document.createElement("button");
         checkAllBtn.id = "check-all-btn";
         checkAllBtn.className = "next-btn";
         checkAllBtn.style.background = "#28a745";
-        checkAllBtn.innerText = qPart === "6" ? "4問まとめて答え合わせ" : "まとめて答え合わせ";
+        // 本番モードならボタンの文字を変更
+        checkAllBtn.innerText = isMockExamModeActive ? "解答を記録して次へ" : (qPart === "6" ? "4問まとめて答え合わせ" : "まとめて答え合わせ");
         checkAllBtn.onclick = () => checkAllMultiAnswers(qPart);
         choicesContainer.appendChild(checkAllBtn);
-
-        currentQuestion.userAnswers = {};
     }
 }
 
-// ------------------------------------------
-// 【Part 5専用】解答・即時判定ロジック
-// ------------------------------------------
+
 function checkPart5Answer(selectedChoice) {
     const currentQuestion = shuffledQuestions[currentQuestionIndex];
-    const feedbackArea = document.getElementById("feedback-area");
-    const buttons = document.querySelectorAll(".choice-btn");
-    buttons.forEach(btn => btn.disabled = true);
-
     currentQuestion.selectedAnswer = String(selectedChoice).trim();
-    const isCorrect = String(selectedChoice).trim() === String(currentQuestion.answer).trim();
 
-    // ウェイト計算
-    const levelStr = currentQuestion.level ? String(currentQuestion.level) : "";
-    const parts = levelStr.split(/[〜-]/);
-    const maxScore = parseInt(parts.concat().pop(), 10) || 600;
-    let weight = 1.0;
-    if (maxScore >= 800) weight = 1.2;
-    else if (maxScore >= 700) weight = 1.1;
+    const cleanChoice = String(selectedChoice).replace(/[\s\u3000]/g, "").toLowerCase();
+    const cleanAnswer = String(currentQuestion.answer).replace(/[\s\u3000]/g, "").toLowerCase();
+    const isCorrect = cleanChoice === cleanAnswer;
+
+    if (isCorrect) correctCount++;
+
+    // 【最重要分岐】本番モードなら解説を出さずに即次の問題へ
+    if (isMockExamModeActive) {
+        if (typeof window.nextQuestion === 'function') {
+            window.nextQuestion();
+        }
+        return;
+    }
+
+    // 通常モード時の即時採点処理（既存ママ）
+    const feedbackArea = document.getElementById("feedback-area");
+    document.querySelectorAll(".choice-btn").forEach(btn => btn.disabled = true);
 
     if (isCorrect) {
-        correctCount++;
-        totalToeicScore += weight; 
         feedbackArea.innerHTML = `<div class="result correct">正解！</div>`;
     } else {
         feedbackArea.innerHTML = `<div class="result incorrect">不正解...（正解: ${currentQuestion.answer}）</div>`;
     }
     
-    // 英文全文の組み立て
     const rawQuestion = currentQuestion.question || "";
     const correctAnswer = currentQuestion.answer || "";
-    let completedSentence = rawQuestion.replace(/-{2,}/g, `<u><b>${correctAnswer}</b></u>`);
-    completedSentence = completedSentence.replace(/_{2,}/g, `<u><b>${correctAnswer}</b></u>`);
-    completedSentence = completedSentence.replace(/\(\s*\)/g, `<u><b>${correctAnswer}</b></u>`);
-    if (completedSentence === rawQuestion) {
-        completedSentence = `${rawQuestion} <br>→ <b>正解単語: ${correctAnswer}</b>`;
-    }
+    let completedSentence = rawQuestion.replace(/-{2,}/g, `<u><b>${correctAnswer}</b></u>`).replace(/_{2,}/g, `<u><b>${correctAnswer}</b></u>`).replace(/\(\s*\)/g, `<u><b>${correctAnswer}</b></u>`);
+    if (completedSentence === rawQuestion) completedSentence = `${rawQuestion} <br>→ <b>正解単語: ${correctAnswer}</b>`;
 
     let htmlContent = `
         <div style="background: #fff; border: 1px solid #ced4da; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-size: 1.05rem; line-height: 1.4; word-spacing: 0.15em;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                 <b>【英文全文】</b>
-                <button onclick="speakSentence('${correctAnswer ? rawQuestion.replace(/-{2,}/g, correctAnswer).replace(/'/g, "\\'") : ""}')" 
-                        style="background: #e9ecef; border: 1px solid #ced4da; padding: 4px 10px; border-radius: 4px; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                    🔊 音読する
-                </button>
+                <button onclick="speakSentence('${correctAnswer ? rawQuestion.replace(/-{2,}/g, correctAnswer).replace(/'/g, "\\'") : ""}')" style="background: #e9ecef; border: 1px solid #ced4da; padding: 4px 10px; border-radius: 4px; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; gap: 4px;">🔊 音読する</button>
             </div>
             <span style="color: #007bff;">${completedSentence}</span>
         </div>
     `;
+    if (currentQuestion.translation) htmlContent += `<div class="translation-box"><b>【和訳】</b><br>${currentQuestion.translation}</div>`;
 
-    if (currentQuestion.translation) {
-        htmlContent += `<div class="translation-box"><b>【和訳】</b><br>${currentQuestion.translation}</div>`;
-    }
-
+// ------------------------------------------
+// 【解説出力部分の修正】Part 5
+// ------------------------------------------
     htmlContent += `<div class="explanation-section"><div class="exp-title">【解説】</div>`;
     const rawChoices = [currentQuestion.choice1, currentQuestion.choice2, currentQuestion.choice3, currentQuestion.choice4];
+    
     let wrongCount = 1;
-
     rawChoices.forEach((choice, index) => {
         if (!choice) return;
         const label = ["(A)", "(B)", "(C)", "(D)"][index];
-        let itemExp = "";
         
-        if (String(choice).trim() === String(currentQuestion.answer).trim()) {
-            itemExp = currentQuestion.exp_correct || "正解の選択肢です。";
-            htmlContent += `<div class="exp-item" style="color:#155724; font-weight:bold;"><span class="exp-label">${label} ${choice}</span><span class="exp-content">${String(itemExp).replace(/:|：/g, '：<br>')}</span></div>`;
+        // 選択肢テキスト自体が正解かどうかを判定
+        const currentChoiceClean = String(choice).replace(/[\s\u3000]/g, "").toLowerCase();
+        const isThisChoiceCorrect = (currentChoiceClean === cleanAnswer);
+
+        if (isThisChoiceCorrect) {
+            // 正解の選択肢には exp_correct を表示
+            htmlContent += `<div class="exp-item" style="color:#155724; font-weight:bold;"><span class="exp-label">${label} ${choice}</span><span class="exp-content">${String(currentQuestion.exp_correct || "正解の選択肢です。")}</span></div>`;
         } else {
-            const wrongKey = "exp_wrong" + wrongCount;
-            itemExp = currentQuestion[wrongKey] || "不正解の選択肢です。";
-            htmlContent += `<div class="exp-item"><span class="exp-label">${label} ${choice}</span><span class="exp-content">${String(itemExp).replace(/:|：/g, '：<br>')}</span></div>`;
+            // 不正解の選択肢には上から順に exp_wrong1, exp_wrong2, exp_wrong3 を割り当て
+            htmlContent += `<div class="exp-item"><span class="exp-label">${label} ${choice}</span><span class="exp-content">${String(currentQuestion["exp_wrong" + wrongCount] || "不正解の選択肢です。")}</span></div>`;
             wrongCount++;
         }
     });
     htmlContent += `</div>`;
+
     feedbackArea.innerHTML += htmlContent;
-    
     document.getElementById("next-btn").style.display = "block";
     setTimeout(() => { feedbackArea.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100);
 }
@@ -230,12 +274,12 @@ function checkPart5Answer(selectedChoice) {
 // ------------------------------------------
 function selectMultiAnswer(qIdx, choice, clickedBtn) {
     const currentQuestion = shuffledQuestions[currentQuestionIndex];
+    if (!currentQuestion.userAnswers) currentQuestion.userAnswers = {};
     currentQuestion.userAnswers[qIdx] = String(choice).trim();
 
-    // 押された設問（qIdx）のボタン群だけを狙ってハイライトを変更する
     const targetButtons = document.querySelectorAll(`.q${qIdx}-btns`);
     targetButtons.forEach(btn => btn.style.background = "white");
-    clickedBtn.style.background = "#e8f4fd"; // 薄い青色にハイライト
+    clickedBtn.style.background = "#e8f4fd"; 
 }
 
 // ------------------------------------------
@@ -243,152 +287,119 @@ function selectMultiAnswer(qIdx, choice, clickedBtn) {
 // ------------------------------------------
 function checkAllMultiAnswers(qPart) {
     const currentQuestion = shuffledQuestions[currentQuestionIndex];
+    if (!currentQuestion.userAnswers) currentQuestion.userAnswers = {};
     
-    // 未選択の設問がないかチェック
     for (let i = 1; i <= 5; i++) {
         if (currentQuestion[`q${i}_choice1`] && !currentQuestion.userAnswers[i]) {
-            alert(`問 ${i} がまだ未選択です。すべての問題を解いてから答え合わせをしてください。`);
+            alert(`問 ${i} がまだ未選択です。すべての問題を解いてから次へ進んでください。`);
             return;
         }
     }
 
-    // 「一括答え合わせボタン」を非表示にする
+    // 【最重要分岐】本番モードなら、その場での採点・解説出力をスキップして即次の大問へ進む
+    if (isMockExamModeActive) {
+        for (let i = 1; i <= 5; i++) {
+            if (!currentQuestion[`q${i}_choice1`]) continue;
+            if (currentQuestion.userAnswers[i] === String(currentQuestion[`q${i}_answer`]).trim()) {
+                correctCount++;
+            }
+        }
+        nextQuestion(); 
+        return;
+    }
+
+    // 通常モード時の即時一括答え合わせ処理
     document.getElementById("check-all-btn").style.display = "none";
-    
-    // 画面内のすべての選択肢ボタンを一括で無効化
     document.querySelectorAll(".choice-btn").forEach(btn => btn.disabled = true);
 
-    // スコア計算用の配点ウェイト算出（既存ロジックママ）
-    const levelStr = currentQuestion.level ? String(currentQuestion.level) : "";
-    const parts = levelStr.split(/[〜-]/);
-    const maxScore = parseInt(parts.concat().pop(), 10) || 600;
-    let weight = 1.0;
-    if (maxScore >= 800) weight = 1.2;
-    else if (maxScore >= 700) weight = 1.1;
-
-    // データが存在する設問（最大5問）を1問ずつ自動で採点
     for (let i = 1; i <= 5; i++) {
         if (!currentQuestion[`q${i}_choice1`]) continue;
-
         const userAns = currentQuestion.userAnswers[i];
         const correctAns = String(currentQuestion[`q${i}_answer`]).trim();
-        const isCorrect = userAns === correctAns;
         const cardFeedback = document.getElementById(`card-feedback-${i}`);
 
-        if (isCorrect) {
+        if (userAns === correctAns) {
             correctCount++;
-            totalToeicScore += weight;
             cardFeedback.innerHTML = `<div class="result correct" style="margin-bottom:10px;">問 ${i} 正解！</div>`;
         } else {
             cardFeedback.innerHTML = `<div class="result incorrect" style="margin-bottom:10px;">問 ${i} 不正解... （正解: ${correctAns}）</div>`;
         }
 
-        // 各設問カードの中に【解説】ブロックを組み立てて挿入
+// ------------------------------------------
+// 【解説出力部分の修正】Part 6/7
+// ------------------------------------------
         let htmlContent = `<div class="explanation-section" style="margin-top:5px;"><div class="exp-title">【解説】</div>`;
-        const rawChoices = [currentQuestion[`q${i}_choice1`], currentQuestion[`q${i}_choice2`], currentQuestion[`q${i}_choice3`], currentQuestion[`q${i}_choice4`]];
+        const rawChoices = [
+            currentQuestion[`q${i}_choice1`], 
+            currentQuestion[`q${i}_choice2`], 
+            currentQuestion[`q${i}_choice3`], 
+            currentQuestion[`q${i}_choice4`]
+        ];
+        
         let wrongCount = 1;
-
         rawChoices.forEach((choice, index) => {
             if (!choice) return;
             const label = ["(A)", "(B)", "(C)", "(D)"][index];
-            let itemExp = "";
+            const choiceClean = String(choice).trim();
 
-            if (String(choice).trim() === correctAns) {
-                itemExp = currentQuestion[`q${i}_exp_correct`] || "正解の選択肢です。";
-                htmlContent += `
-                    <div class="exp-item" style="color:#155724; font-weight:bold;">
-                        <span class="exp-label">${label} ${choice}</span>
-                        <span class="exp-content">${String(itemExp).replace(/:|：/g, '：<br>')}</span>
-                    </div>`;
+            if (choiceClean === correctAns) {
+                // 正解の選択肢には qX_exp_correct を表示
+                htmlContent += `<div class="exp-item" style="color:#155724; font-weight:bold;"><span class="exp-label">${label} ${choice}</span><span class="exp-content">${String(currentQuestion[`q${i}_exp_correct`] || "正解の選択肢です。")}</span></div>`;
             } else {
-                const wrongKey = `q${i}_exp_wrong${wrongCount}`;
-                itemExp = currentQuestion[wrongKey] || "不正解の選択肢です。";
-                htmlContent += `
-                    <div class="exp-item">
-                        <span class="exp-label">${label} ${choice}</span>
-                        <span class="exp-content">${String(itemExp).replace(/:|：/g, '：<br>')}</span>
-                    </div>`;
+                // 不正解の選択肢には順に qX_exp_wrong1~3 を表示
+                htmlContent += `<div class="exp-item"><span class="exp-label">${label} ${choice}</span><span class="exp-content">${String(currentQuestion[`q${i}_exp_wrong${wrongCount}`] || "不正解の選択肢です。")}</span></div>`;
                 wrongCount++;
             }
         });
         htmlContent += `</div>`;
+
         cardFeedback.innerHTML += htmlContent;
     }
-
-    // 全体フィードバック（和訳や全文の生成）
     const mainFeedback = document.getElementById("feedback-area");
     let globalHtml = "";
+    let basePassage = currentQuestion.passage || currentQuestion.question || "";
     
-    // 【Part 6 のみ有効】空欄に4問分の正解を自動でハメ込んだ完成文を作る
     if (String(qPart).trim() === "6") {
-        let completedPassage = currentQuestion.passage || currentQuestion.question || "";
-        completedPassage = completedPassage.replace(/\|/g, "<br>"); // 縦棒を改行に変える
-
+        let completedPassage = basePassage.replace(/\|/g, "<br>"); 
         for (let i = 1; i <= 4; i++) {
             const correctAns = String(currentQuestion[`q${i}_answer`]).trim();
             if (!correctAns) continue;
-            
-            // 補充した単語が前後の単語とくっつかないよう、必ず左右に半角スペースを付与
             const insertedText = ` <u><b>${correctAns}</b></u> `;
-            const escapedNum = String(i);
-
-            // あらゆるパターンの空欄表記（(1), 【1】, ---1---, 剥き出しの1）に対応する正規表現
-            const bracketRegex = new RegExp(`[\\(\\[\\【]\\s*${escapedNum}\\s*[\\)\\]\\】]`, "g");
-            const hyphenRegex = new RegExp(`[-_\\*\\s]*${escapedNum}[-_\\*\\s]*`, "g");
-            const singleRegex = new RegExp(`\\b${escapedNum}\\b`, "g");
-            
-            if (completedPassage.match(bracketRegex)) {
-                completedPassage = completedPassage.replace(bracketRegex, insertedText);
-            } else if (completedPassage.match(hyphenRegex)) {
-                completedPassage = completedPassage.replace(hyphenRegex, insertedText);
-            } else {
-                completedPassage = completedPassage.replace(singleRegex, insertedText);
-            }
+            const bracketRegex = new RegExp(`[\\(\\[\\【]\\s*${String(i)}\\s*[\\)\\]\\】]`, "g");
+            const hyphenRegex = new RegExp(`[-_\\*\\s]+${String(i)}[-_\\*\\s]+`, "g");
+            const singleRegex = new RegExp(`(?<![\\d\\:\\.])\\b${String(i)}\\b(?![\\:\\.\\d])`, "g");
+            if (completedPassage.match(bracketRegex)) completedPassage = completedPassage.replace(bracketRegex, insertedText);
+            else if (completedPassage.match(hyphenRegex)) completedPassage = completedPassage.replace(hyphenRegex, insertedText);
+            else completedPassage = completedPassage.replace(singleRegex, insertedText);
         }
-        
-        globalHtml += `
-            <div style="background: #fff; border: 1px solid #ced4da; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 1.05rem; line-height: 1.7; word-spacing: 0.15em;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <b style="color: #007bff;">【英文全文（空欄補充済み）】</b>
-                    <button onclick="speakSentence('${(currentQuestion.passage || "").replace(/'/g, "\\'")}')" style="background: #e9ecef; border: 1px solid #ced4da; padding: 6px 12px; border-radius: 4px; font-size: 0.9rem; cursor: pointer;">🔊 音読する</button>
-                </div>
-                <div>${completedPassage}</div>
-            </div>
-        `;
-    }
-    else {
-        // 【Part 7 の場合】余計な文字置換は一切せず、元の長文（|を改行に変えたもの）をそのまま美しく表示する
-        let cleanPassage = currentQuestion.passage || currentQuestion.question || "";
-        cleanPassage = cleanPassage.replace(/\|/g, "<br>"); // 縦棒を改行に戻す
-
-        globalHtml += `
-            <div style="background: #fff; border: 1px solid #ced4da; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 1.05rem; line-height: 1.7; word-spacing: 0.15em;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <b style="color: #007bff;">【英文全文】</b>
-                    <button onclick="speakSentence('${(currentQuestion.passage || "").replace(/'/g, "\\'")}')" style="background: #e9ecef; border: 1px solid #ced4da; padding: 6px 12px; border-radius: 4px; font-size: 0.9rem; cursor: pointer;">🔊 音読する</button>
-                </div>
-                <div>${cleanPassage}</div>
-            </div>
-        `;
+        const speechText = basePassage.replace(/\|/g, " ").replace(/<b>|<\/b>|<u>|<\/u>/g, "").replace(/'/g, "\\'");
+        globalHtml += `<div style="background: #fff; border: 1px solid #ced4da; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 1.05rem; line-height: 1.7; word-spacing: 0.15em;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"><b style="color: #007bff;">【英文全文（空欄補充済み）】</b><button onclick="speakSentence('${speechText}')" style="background: #e9ecef; border: 1px solid #ced4da; padding: 6px 12px; border-radius: 4px; font-size: 0.9rem; cursor: pointer; font-weight: bold;">🔊 長文を音読する</button></div><div>${completedPassage}</div></div>`;
+    } else {
+        const speechText = basePassage.replace(/\|/g, " ").replace(/'/g, "\\'");
+        globalHtml += `<div style="background: #fff; border: 1px solid #ced4da; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 1.05rem; line-height: 1.7; word-spacing: 0.15em;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;"><b style="color: #007bff;">【英文全文】</b><button onclick="speakSentence('${speechText}')" style="background: #e9ecef; border: 1px solid #ced4da; padding: 6px 12px; border-radius: 4px; font-size: 0.9rem; cursor: pointer; font-weight: bold;">🔊 長文を音読する</button></div><div>${basePassage.replace(/\|/g, "<br>")}</div></div>`;
     }
 
-    // 長文全体の和訳ブロックを追加
-    if (currentQuestion.translation) {
-        globalHtml += `<div class="translation-box" style="margin-top:15px;"><b>【長文全体の和訳】</b><br>${currentQuestion.translation}</div>`;
-    }
-
+    if (currentQuestion.translation) globalHtml += `<div class="translation-box" style="margin-top:15px;"><b>【長文全体の和訳】</b><br>${String(currentQuestion.translation).replace(/\|/g, "<br>")}</div>`;
     mainFeedback.innerHTML = globalHtml;
-    
-    // 「次の問題（長文）へ」ボタンを活性化
     document.getElementById("next-btn").style.display = "block";
-    
-    // 解説位置までスムーズにスクロール
     setTimeout(() => { mainFeedback.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100);
 }
 
-// ==========================================
+// ------------------------------------------
+// 【中途終了処理】
+// ------------------------------------------
+function finishQuizEarly() {
+    if (confirm("途中で採点してクイズを終了しますか？")) {
+        clearInterval(quizTimerInterval); 
+        shuffledQuestions = shuffledQuestions.slice(0, currentQuestionIndex + 1);
+        currentQuestionIndex = shuffledQuestions.length; 
+        nextQuestion(); 
+    }
+}
+
+// ------------------------------------------
 // 【音声読み上げ処理】
-// ==========================================
+// ------------------------------------------
 function speakSentence(text) {
     if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
